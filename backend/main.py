@@ -23,6 +23,7 @@ from autogen_ext.models.openai import OpenAIChatCompletionClient
 from prompt.llm_prompt import system_prompt
 from tools.get_schema import get_schema
 from tools.run_simulation import run_simulation
+from tools.get_result import get_result
 
 load_dotenv()
 # 确保标准输出使用UTF-8编码
@@ -101,7 +102,7 @@ async def chemical_expert_agent(model_client: OpenAIChatCompletionClient) -> Ass
         name="chemical_expert",
         model_client=model_client,
         system_message=system_prompt,
-        tools = [get_schema, run_simulation],
+        tools = [get_schema, run_simulation, get_result],
         reflect_on_tool_use=True,
         model_client_stream=True,
         max_tool_iterations=10,
