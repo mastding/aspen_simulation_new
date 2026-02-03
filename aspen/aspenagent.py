@@ -85,10 +85,10 @@ class AspenSimulationManager:
             if template_path and os.path.exists(template_path):
                 self.aspen.InitFromArchive2(template_path)
             else:
-                #self.aspen.InitFromArchive2("")  # 空模拟
-                self.aspen.InitNew2()
+                self.aspen.InitFromArchive2("")  # 空模拟
+                # self.aspen.InitNew2()
             print("成功创建新模拟")
-            self.aspen.Visible = True
+            # self.aspen.Visible = True
         except Exception as e:
             print(f"创建模拟失败: {e}")
             raise
@@ -2754,7 +2754,7 @@ class AspenSimulationManager:
     def get_all_simulation_results(self, config: Dict[str, Any]):
         # 生成文件名
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        excel_filename = fr"E:\DICP\Build_Aspenplus_process\resultfile\aspen_result_export_{timestamp}.xlsx"
+        excel_filename = fr"D:\aspen\resultfile\aspen_result_export_{timestamp}.xlsx"
         
         # 确保目录存在
         result_dir = os.path.dirname(excel_filename)
@@ -4188,6 +4188,19 @@ def run_aspen_simulation():
     config = request.json
     if not config:
         return jsonify({"error": "请求体为空"}), 400
+    # 创建唯一的结果输出文件名
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # 将 config 保存为 JSON 文件
+    config_file_path = fr"./config_file/config_{timestamp}.json"
+    # 确保目录存在
+    try:
+        with open(config_file_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+        print(f"配置文件已保存到: {config_file_path}")
+    except Exception as e:
+        print(f"保存配置文件时出错: {e}")
+        return jsonify({"error": f"无法保存配置文件: {e}"}), 500
 
     # 初始化模拟管理器
     aspen_manager = AspenSimulationManager()
@@ -4196,9 +4209,7 @@ def run_aspen_simulation():
         # 创建新模拟
         aspen_manager.create_new_simulation(fr"D:\aspen\orgfile\test.bkp")
 
-        # 创建唯一的结果输出文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file_path = fr"E:\DICP\Build_Aspenplus_process\bkp\output_{timestamp}.bkp"
+        output_file_path = fr"D:\aspen\bkpfile\output_{timestamp}.bkp"
 
         # 加载JSON配置
         loaded_config = aspen_manager.load_json_config(config)
@@ -4216,6 +4227,7 @@ def run_aspen_simulation():
         return jsonify({
             "success": False,
             "aspen_file_path": output_file_path,
+            "config_file_path": config_file_path,
             "error_type": "模拟配置写入失败",
             "error_message": f"{error_message}: {str(e)}"
         }), 201
@@ -4241,6 +4253,7 @@ def run_aspen_simulation():
             return jsonify({
                 "success": True,
                 "aspen_file_path": output_file_path,
+                "config_file_path": config_file_path,
                 "result_file_path": result_absolute_path,
                 "message": "Aspen模拟已成功运行并保存"
             })
@@ -4248,6 +4261,7 @@ def run_aspen_simulation():
             return jsonify({
                 "success": False,
                 "aspen_file_path": output_file_path,
+                "config_file_path": config_file_path,
                 "error_type": "模拟运行过程发生错误",
                 "error_message": current_messages_str
             }), 201
