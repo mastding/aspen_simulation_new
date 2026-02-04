@@ -313,7 +313,11 @@
                 },
                 "TOTFLOW_UNITS": {
                   "type": "string",
-                  "description": "总流量单位"
+                  "description": "总流量单位",
+                  "enum": [
+                    "kg/hr",
+                    "kmol/hr"
+                  ]
                 },
                 "BASIS": {
                   "type": "string",
@@ -346,7 +350,11 @@
                     },
                     "FLOW_UNITS": {
                       "type": "string",
-                      "description": "流量单位，组成基准为分率填空字符"
+                      "description": "流量单位，组成基准为分率填空字符",
+                      "enum": [
+                        "kg/hr",
+                        "kmol/hr"
+                      ]
                     },
                     "FLOW_BASIS": {
                       "type": "string",

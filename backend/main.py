@@ -27,12 +27,39 @@ from tools.get_result import get_result
 from fastapi import WebSocket, WebSocketDisconnect
 import json
 import asyncio
+# from autogen_agentchat.messages import (
+#     TextMessage,
+#     ToolCallRequestEvent,    # 对应 LLM 发起调用
+#     ToolCallExecutionEvent,  # 对应 工具返回结果
+#     ThoughtEvent            # 对应 思维链
+# )
 from autogen_agentchat.messages import (
+	AgentEvent,
+    BaseMessage,
+    ChatMessage,
+    BaseChatMessage,
+    BaseAgentEvent,
+    BaseTextChatMessage,
+    StructuredContentType,
+    StructuredMessage,
+    StructuredMessageFactory,
+    HandoffMessage,
+    MultiModalMessage,
+    StopMessage,
     TextMessage,
-    ToolCallRequestEvent,    # 对应 LLM 发起调用
-    ToolCallExecutionEvent,  # 对应 工具返回结果
-    ThoughtEvent            # 对应 思维链
+    ToolCallExecutionEvent,
+    ToolCallRequestEvent,
+    ToolCallSummaryMessage,
+    MemoryQueryEvent,
+    UserInputRequestedEvent,
+    ModelClientStreamingChunkEvent,
+    ThoughtEvent,
+    SelectSpeakerEvent,
+    MessageFactory,
+    CodeGenerationEvent,
+    CodeExecutionEvent
 )
+
 from autogen_core import CancellationToken
 
 load_dotenv()
@@ -44,7 +71,7 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repla
 MODEL = os.getenv("MODEL", "deepseek-chat")
 MODEL_API_KEY = os.getenv("MODEL_API_KEY")
 MODEL_API_URL = os.getenv("MODEL_API_URL")  # 模型API地址
-ASPEN_SIMULATOR_URL = os.getenv("ASPEN_SIMULATOR_URL", "http://localhost:8002")
+ASPEN_SIMULATOR_URL = os.getenv("ASPEN_SIMULATOR_URL")
 
 # 创建必要的目录
 BASE_DIR = os.path.dirname(__file__)
@@ -115,7 +142,7 @@ async def chemical_expert_agent(model_client: OpenAIChatCompletionClient) -> Ass
         tools = [get_schema, run_simulation, get_result],
         reflect_on_tool_use=True,
         model_client_stream=True,
-        max_tool_iterations=10,
+        max_tool_iterations=100,
     )
 
     # 加载状态（如果存在）
@@ -153,62 +180,62 @@ async def history():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-@app.post("/chat", response_model=TextMessage)
-async def chat(request: ChatRequest) -> TextMessage:
-    """处理用户消息"""
-    try:
-        # 创建模型客户端
-        model_client = await creat_model_client()
-        # 获取智能体
-        agent = await chemical_expert_agent(model_client)
-
-        # 创建用户消息
-        user_message = TextMessage(
-            content=request.message,
-            source="user"
-        )
-
-        logger.info(f"处理用户消息: {request.message[:100]}...")
-
-        # 获取响应
-        response = await agent.on_messages(
-            messages=[user_message],
-            cancellation_token=CancellationToken()
-        )
-
-        # 保存智能体状态
-        state = await agent.save_state()
-        async with aiofiles.open(state_path, "w", encoding="utf-8") as f:
-            await f.write(json.dumps(state, ensure_ascii=False).encode("utf-8").decode("utf-8"))
-
-        # 保存历史记录
-        history = await get_history()
-        history.append({
-            "role": "user",
-            "content": request.message,
-            "timestamp": datetime.now().isoformat()
-        })
-
-        response_content = response.chat_message.content
-        history.append({
-            "role": "assistant",
-            "content": response_content,
-            "timestamp": datetime.now().isoformat()
-        })
-
-        # 保持最近100条历史记录
-        if len(history) > 100:
-            history = history[-100:]
-
-        async with aiofiles.open(history_path, "w", encoding="utf-8") as f:
-            await f.write(json.dumps(history, ensure_ascii=False, indent=2).encode("utf-8").decode("utf-8"))
-
-        assert isinstance(response.chat_message, TextMessage)
-        return response.chat_message
-
-    except Exception as e:
-        logger.exception(f"处理聊天请求时出错: {e}")
-        raise HTTPException(status_code=500, detail=f"处理请求时出错: {str(e)}")
+# @app.post("/chat", response_model=TextMessage)
+# async def chat(request: ChatRequest) -> TextMessage:
+#     """处理用户消息"""
+#     try:
+#         # 创建模型客户端
+#         model_client = await creat_model_client()
+#         # 获取智能体
+#         agent = await chemical_expert_agent(model_client)
+#
+#         # 创建用户消息
+#         user_message = TextMessage(
+#             content=request.message,
+#             source="user"
+#         )
+#
+#         logger.info(f"处理用户消息: {request.message[:100]}...")
+#
+#         # 获取响应
+#         response = await agent.on_messages(
+#             messages=[user_message],
+#             cancellation_token=CancellationToken()
+#         )
+#
+#         # 保存智能体状态
+#         state = await agent.save_state()
+#         async with aiofiles.open(state_path, "w", encoding="utf-8") as f:
+#             await f.write(json.dumps(state, ensure_ascii=False).encode("utf-8").decode("utf-8"))
+#
+#         # 保存历史记录
+#         history = await get_history()
+#         history.append({
+#             "role": "user",
+#             "content": request.message,
+#             "timestamp": datetime.now().isoformat()
+#         })
+#
+#         response_content = response.chat_message.content
+#         history.append({
+#             "role": "assistant",
+#             "content": response_content,
+#             "timestamp": datetime.now().isoformat()
+#         })
+#
+#         # 保持最近100条历史记录
+#         if len(history) > 100:
+#             history = history[-100:]
+#
+#         async with aiofiles.open(history_path, "w", encoding="utf-8") as f:
+#             await f.write(json.dumps(history, ensure_ascii=False, indent=2).encode("utf-8").decode("utf-8"))
+#
+#         assert isinstance(response.chat_message, TextMessage)
+#         return response.chat_message
+#
+#     except Exception as e:
+#         logger.exception(f"处理聊天请求时出错: {e}")
+#         raise HTTPException(status_code=500, detail=f"处理请求时出错: {str(e)}")
 
 # 扩展：WebSocket 管理器
 class ConnectionManager:
@@ -241,18 +268,28 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             user_input = json.loads(data)["message"]
 
+            accumulated_content = ""
+            last_chunk_was_text = False
+
             async for chunk in agent.on_messages_stream(
                     [TextMessage(content=user_input, source="user")],
                     CancellationToken()
             ):
                 payload = {"role": "assistant", "type": "update"}
 
-                # 情况 A: 最终文本回复
-                if isinstance(chunk, TextMessage):
-                    payload.update({"content": chunk.content})
+                # #情况 A: 最终文本回复
+                # if isinstance(chunk, ModelClientStreamingChunkEvent):
+                #     payload.update({"content": chunk.content})
+
+                # 情况 A: 流式文本块
+                if isinstance(chunk, ModelClientStreamingChunkEvent):
+                    accumulated_content += chunk.content
+                    last_chunk_was_text = True
+                    continue  # 累积，不立即发送
 
                 # 情况 B: 思维链 (Thought)
                 elif isinstance(chunk, ThoughtEvent):
+                    # logger.info(f"这是ThoughtEvent，{chunk.content}")
                     payload.update({"thought": chunk.content})
 
                 # 情况 C: 工具调用请求 (Request)
@@ -272,6 +309,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # 情况 D: 工具执行结果 (Execution)
                 elif isinstance(chunk, ToolCallExecutionEvent):
                     # 注意：chunk.content 在这里是 List[FunctionExecutionResult]
+                    logger.info(f"这是??????，{chunk.content}")
                     payload.update({
                         "status": "tool_executed",
                         "tool_results": [
@@ -283,6 +321,11 @@ async def websocket_endpoint(websocket: WebSocket):
                         ]
                     })
 
+                await manager.send_payload(websocket, payload)
+
+            # 流结束后发送剩余文本
+            if accumulated_content:
+                payload = {"role": "assistant", "type": "update", "content": accumulated_content}
                 await manager.send_payload(websocket, payload)
 
             await manager.send_payload(websocket, {"type": "done"})
@@ -299,6 +342,6 @@ if __name__ == "__main__":
 
     logger.info(f"启动化工流程模拟智能体服务 - {host}:{port}")
     logger.info(f"使用模型: {MODEL}")
-    logger.info(f"模拟器地址: {ASPEN_SIMULATOR_URL}")
+    logger.info(f"ASPEN模拟器地址: {ASPEN_SIMULATOR_URL}")
 
     uvicorn.run(app, host=host, port=port)

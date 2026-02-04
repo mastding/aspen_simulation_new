@@ -8,4 +8,5 @@ system_prompt = f"""角色：你是一个专业的化工流程模拟专家。请
 schema检查要求:{schema_check_prompt}。思考流程:{thought_process_prompt}。
 2.调用aspen simulation工具运行模拟配置获得模拟结果和模拟文件，如果模拟结果不成功请根据报错信息再次生成配置后模拟，直到模拟成功。
 3.调用get_result结果分析工具读取本地的结果文件，分析结果是否满足用户的任务要求，调用get_result工具要求：{result_get_prompt}。
+完成如上任务后，请分析并总结本次的任务及结果，并在最终回复中呈现aspen simulation工具运行成功后返回的ASPEN文件路径、配置文件路径和结果文件路径。
 """

@@ -92,55 +92,104 @@
             </h2>
           </div>
           <div class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar" ref="chatBox">
-            <div v-for="(msg, index) in messages" :key="index"
-                 :class="msg.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
-
-              <!-- 用户消息 - 字体调小 -->
-              <div v-if="msg.role === 'user'"
-                   class="max-w-[70%] bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none shadow-lg text-sm">
-                {{ msg.content }}
+            <!-- 用户消息 -->
+            <div v-for="(msg, index) in messages" :key="msg.id">
+              <!-- 用户消息 -->
+              <div v-if="msg.type === 'user'" class="flex justify-end mb-4">
+                <div class="max-w-[60%] bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none shadow-lg text-xs">
+                  {{ msg.content }}
+                </div>
               </div>
 
-              <div v-else class="max-w-[90%] w-full space-y-4">
-                <!-- 思考过程 - 字体调小 -->
-                <div v-if="msg.thought"
-                     class="ml-4 pl-4 border-l-2 border-amber-500/40 italic text-gray-600 text-xs bg-amber-50 p-2 rounded-r">
-                  <span class="text-amber-700 font-bold not-italic text-[10px] block mb-1">
-                    🤔 思考过程 (THOUGHT)
-                  </span>
-                  <div class="text-xs">{{ msg.thought }}</div>
-                </div>
-
-                <!-- 工具调用 - 字体调小 -->
-                <div v-for="(tool, tIdx) in msg.tool_calls" :key="tIdx"
-                     class="bg-gray-50 border border-gray-300 rounded-xl overflow-hidden shadow-sm">
-                  <div class="bg-gray-100 px-3 py-2 flex justify-between items-center border-b border-gray-300">
-                    <span class="text-[10px] font-mono text-emerald-600 font-bold">
-                      🛠️ 工具调用: {{ tool.function_name }}
-                    </span>
-                  </div>
-                  <div class="p-3 text-[10px] font-mono space-y-2">
-                    <div class="text-blue-600">
-                      >> 输入参数:
-                      <pre class="whitespace-pre-wrap mt-1 text-gray-700 bg-gray-100 p-2 rounded text-[10px]">{{ JSON.stringify(tool.args, null, 2) }}</pre>
+              <!-- 思维链事件 -->
+              <div v-else-if="msg.type === 'thought'" class="flex justify-start mb-4">
+                <div class="max-w-[90%] w-full">
+                  <div class="border border-amber-200 rounded-lg overflow-hidden shadow-sm">
+                    <div
+                      class="bg-amber-50 px-3 py-2 flex justify-between items-center border-b border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
+                      @click="toggleCollapse(msg.id)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="text-amber-600 font-bold text-xs">🤔 思考过程</span>
+                        <span class="text-[10px] text-amber-500 bg-amber-100 px-2 py-0.5 rounded-full">
+                          {{ msg.collapsed ? '已折叠' : '已展开' }}
+                        </span>
+                      </div>
+                      <span class="text-amber-600 text-xs">
+                        {{ msg.collapsed ? '▼' : '▲' }}
+                      </span>
                     </div>
-                    <div v-if="tool.result" class="text-gray-600 pt-2 border-t border-gray-300">
-                      >> 执行结果:
-                      <pre class="whitespace-pre-wrap mt-1 text-gray-800 bg-gray-50 p-2 rounded text-[10px]">{{ tool.result }}</pre>
+                    <div v-if="!msg.collapsed" class="p-3">
+                      <pre class="whitespace-pre-wrap text-xs text-gray-700 font-mono leading-relaxed">{{ msg.content }}</pre>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                <!-- AI回复内容 - 字体调小 -->
-                <div v-if="msg.content"
-                     class="bg-gradient-to-r from-blue-50 to-white p-4 rounded-2xl rounded-tl-none border border-blue-200 shadow-sm">
-                  <div v-html="renderMarkdown(msg.content)" class="text-gray-800 text-sm prose-sm"></div>
+              <!-- 工具调用请求 - 现在包含执行结果 -->
+              <div v-else-if="msg.type === 'tool_request'" class="flex justify-start mb-4">
+                <div class="max-w-[90%] w-full">
+                  <div class="border border-purple-200 rounded-lg overflow-hidden shadow-sm">
+                    <div
+                      class="bg-purple-50 px-3 py-2 flex justify-between items-center border-b border-purple-200 cursor-pointer hover:bg-purple-100 transition-colors"
+                      @click="toggleCollapse(msg.id)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="text-purple-600 font-bold text-xs">🛠️ {{ msg.function_name }}</span>
+                        <span class="text-[10px] text-purple-500 bg-purple-100 px-2 py-0.5 rounded-full">
+                          {{ msg.collapsed ? '已折叠' : '已展开' }}
+                        </span>
+                        <span v-if="msg.result" class="text-[10px] text-gray-500">
+                          {{ msg.is_error ? '❌ 执行失败' : '✅ 已执行' }}
+                        </span>
+                      </div>
+                      <span class="text-purple-600 text-xs">
+                        {{ msg.collapsed ? '▼' : '▲' }}
+                      </span>
+                    </div>
+                    <div v-if="!msg.collapsed" class="p-3 space-y-3">
+                      <div>
+                        <div class="text-[10px] font-semibold text-blue-600 mb-1">输入参数:</div>
+                        <pre class="whitespace-pre-wrap text-xs text-gray-700 bg-gray-50 p-2 rounded border border-gray-200 font-mono">{{ JSON.stringify(msg.args, null, 2) }}</pre>
+                      </div>
+                      <div v-if="msg.result" class="pt-2 border-t border-gray-200">
+                        <div class="text-[10px] font-semibold text-emerald-600 mb-1">执行结果:</div>
+                        <pre class="whitespace-pre-wrap text-xs text-gray-800 bg-white p-2 rounded border border-gray-200 font-mono max-h-60 overflow-y-auto">{{ msg.result }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 助手最终回复 -->
+              <div v-else-if="msg.type === 'assistant'" class="flex justify-start mb-4">
+                <div class="max-w-[90%] w-full">
+                  <div class="border border-blue-200 rounded-lg overflow-hidden shadow-sm">
+                    <div
+                      class="bg-blue-50 px-3 py-2 flex justify-between items-center border-b border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                      @click="toggleCollapse(msg.id)"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span class="text-blue-600 font-bold text-xs">🤖 智能体回复</span>
+                        <span class="text-[10px] text-blue-500 bg-blue-100 px-2 py-0.5 rounded-full">
+                          {{ msg.collapsed ? '已折叠' : '已展开' }}
+                        </span>
+                      </div>
+                      <span class="text-blue-600 text-xs">
+                        {{ msg.collapsed ? '▼' : '▲' }}
+                      </span>
+                    </div>
+                    <div v-if="!msg.collapsed" class="p-4">
+                      <div v-html="renderMarkdown(msg.content)" class="text-gray-800 text-sm prose-sm"></div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <!-- 加载状态 - 字体调小 -->
-            <div v-if="loading" class="flex items-center gap-2 p-4 text-gray-600 text-xs">
+            <!-- 加载状态 -->
+            <div v-if="loading && (!messages.length || messages[messages.length-1].type === 'user')"
+                 class="flex items-center gap-2 p-4 text-gray-600 text-xs">
               <span class="animate-spin">⟳</span>
               <span>🤖 智能体正在计算并操作 Aspen...</span>
             </div>
@@ -154,7 +203,7 @@
         ></div>
 
         <!-- 区域2: 用户输入区域 -->
-          <div class="bg-white rounded-xl shadow-md border border-slate-300 overflow-hidden flex flex-col" style="height: 300px;">
+        <div class="bg-white rounded-xl shadow-md border border-slate-300 overflow-hidden flex flex-col" style="height: 300px;">
           <div class="px-4 py-3 border-b border-slate-300 bg-gradient-to-r from-emerald-50 to-white">
             <h2 class="font-bold text-gray-700 flex items-center gap-2">
               <span class="text-emerald-600">💬</span>
@@ -205,28 +254,27 @@
 
             <!-- 流程模拟示例 -->
             <div v-if="activeMenu === 'process'" class="mb-4">
-              <div class="p-2 bg-emerald-50 rounded-lg border border-emerald-200">
-                <div class="flex items-center justify-between mb-1">
-                  <h3 class="text-xs font-medium text-emerald-700">
-                    流程模拟示例
-                  </h3>
-                  <div class="text-[10px] text-emerald-600">
-                    点击使用示例
-                  </div>
-                </div>
-
+                <!-- 示例标签 - 水平排列 -->
+              <div class="flex flex-wrap gap-1 mb-3">
                 <button
-                  @click="applyProcessPrompt"
-                  class="w-full px-3 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded text-xs font-medium shadow transition-all active:scale-95 flex items-center justify-center gap-1"
+                  v-for="(exampleName, exampleId) in processExampleNames"
+                  :key="exampleId"
+                  @click="applyProcessPrompt(exampleId)"
+                  :class="[
+                    'flex items-center px-2 py-1 text-[10px] rounded transition-all border',
+                    selectedProcessExample === exampleId
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-400'
+                      : 'bg-gray-50 text-gray-600 border-gray-300 hover:border-emerald-300 hover:text-emerald-600'
+                  ]"
                 >
-                  <span>⚡</span>
-                  <span>乙苯催化脱氢制苯乙烯</span>
+                  <span class="mr-1 text-xs">{{ getProcessExampleIcon(exampleId) }}</span>
+                  <span>{{ exampleName }}</span>
                 </button>
               </div>
             </div>
 
             <!-- 当前选择提示 -->
-            <div v-if="selectedEquipment || (activeMenu === 'process' && userInput.includes('乙苯'))"
+            <div v-if="selectedEquipment || (activeMenu === 'process' && selectedProcessExample)"
                  class="mb-3 p-1.5 bg-blue-50 rounded border border-blue-200">
               <div class="flex items-center justify-between">
                 <div class="text-[10px] text-blue-700">
@@ -234,13 +282,13 @@
                     <span class="font-semibold">已选择设备:</span>
                     {{ equipmentData[selectedCategory]?.find(e => e.id === selectedEquipment)?.name || selectedEquipment }}
                   </span>
-                  <span v-else class="font-semibold text-emerald-700">
-                    已选择流程模拟示例
+                  <span v-else-if="selectedProcessExample" class="font-semibold text-emerald-700">
+                    已选择流程示例: {{ processExampleNames[selectedProcessExample] }}
                   </span>
                 </div>
                 <button
-                  v-if="selectedEquipment"
-                  @click="selectedEquipment = null"
+                  v-if="selectedEquipment || selectedProcessExample"
+                  @click="clearSelection"
                   class="text-[8px] text-gray-500 hover:text-red-500 hover:bg-red-50 px-1.5 py-0.5 rounded"
                 >
                   取消
@@ -305,6 +353,16 @@ const getCategoryIcon = (category) => {
     reactor: '⚡'
   };
   return icons[category] || '📁';
+};
+
+// 获取流程示例图标
+const getProcessExampleIcon = (exampleId) => {
+  const icons = {
+    'ethylbenzene_styrene': '⚡',
+    'azeotropic_distillation': '🏗️',
+    'benzene_ethylene': '⚗️'
+  };
+  return icons[exampleId] || '📋';
 };
 
 const equipmentData = {
@@ -382,8 +440,10 @@ R5：CH₃OH → C + H₂O + H₂，转化率：0.005
 R1：CH₃OH + H₂O → CO₂ + 3H₂
 使用动力学反应模型，计算反应器出口物流的组成和流量。物性方法采用 NRTL。`,
 
-  'radfrac': `用20°C, 101.325kPa 的水吸收空气中的丙酮。已知进料空气温度 20C，压力 101.325kPa，流量 14kmol/h，含丙酮 0.026(摩尔分数) ，氮气0.769, 氧气 0.205，吸收塔常压操作，理论板数 10。
-要求净化后的空气中丙酮浓度为 0.005，求所需水的用量。物性方法采用 NRTL。`,
+  'radfrac': `进料量是12500kg/h，温度45℃，压力101.325kPa，进料组成是乙苯0.5843（质量分数）乙苯CAS号为100-41-4，name为C8H10-4，
+苯乙烯0.415（质量分数）苯乙烯CAS号为100-42-5，焦油0.0007（质量分数），焦油CAS号为629-78-7,name为C17H36。
+塔顶用全凝器，压力6kPa，再沸器压力14kPa，回流比是最小回流比的1.2倍。根据纯度要求计算得出塔顶乙苯的摩尔回收率为99.91%，塔底苯乙烯的摩尔回收率为98.58%。
+产品要求塔顶乙苯不低于0.99，塔底苯乙烯不低于0.997。物性方法用PENG-ROB。请使用精馏塔进行严格计算`,
 
   'distl': `使用精馏塔（Distl）分离二元混合物。请给定进料温度、压力、总流量及组成（注明单位），并指定塔板数、回流比/馏出与进料比等操作条件，计算塔顶与塔底产品的流量与组成。物性方法请指定（如 NRTL/UNIQUAC）。`,
 
@@ -410,7 +470,24 @@ R1：CH₃OH + H₂O → CO₂ + 3H₂
 使用动力学反应模型，计算反应器出口物流的组成和流量。物性方法采用 NRTL。`
 };
 
-const processPrompt = `生成乙苯催化脱氢制苯乙烯的工艺流程。进料中纯乙苯，流量4815kg/h，温度为25℃，压力为0.1MPa；纯水，流量327kg/h，温度为25℃，压力为0.1MPa。要求产品苯乙烯纯度0.972。优先使用RStoic反应器。`;
+// 流程模拟示例
+const processExamples = {
+  'ethylbenzene_styrene': `生成乙苯催化脱氢制苯乙烯的工艺流程。进料中纯乙苯，流量4815kg/h，温度为25℃，压力为0.1MPa；纯水，流量327kg/h，温度为25℃，压力为0.1MPa。要求产品苯乙烯纯度0.972。优先使用RStoic反应器。`,
+
+  'azeotropic_distillation': `以单股混合烃为进料，组成为 n-己烷(nC6)、n-辛烷(nC8)、n-癸烷(nC10)、n-十二烷(nC12) 四组分（等摩尔 0.25/0.25/0.25/0.25），总流量 100 kmol/h；进料压力约 1.2 bar，温度100℃，进料为液相进料。
+T1轻端切割塔先把最轻组分 nC6 从混合物中分出，塔顶得到高纯 nC6 产品；塔底为 nC8+nC10+nC12 的重端混合物流，作为T2进料。
+T2中轻端切割塔从塔1底部物流中进一步切出第二轻组分 nC8，塔顶得到高纯 nC8 产品；塔底为 nC10+nC12 的更重混合物流，作为T3进料。
+T3重端精分塔将剩余二元重端体系 nC10 与 nC12 做最终分离，塔顶得到高纯 nC10 产品；塔底得到高纯 nC12 产品。`,
+
+  'benzene_ethylene': `含苯（BENZENE）和丙烯（PROPENE）的原料物流(FEED)进入反应器（REACTOR），经反应生成异丙苯（PRO-BEN，），反应后的混合物经冷凝器（COOLER）冷凝，再进入分离器（SEP），
+分离器（SEP）顶部物流（RECYCLE）循环回反应器（REACTOR），分离器(SEP)底部物流作为产品（PRODUCT）流出，求产品(PRODUCT)中异丙苯的摩尔流量。物性方法选择 RK-SOAVE。`
+};
+
+const processExampleNames = {
+  'azeotropic_distillation': '共沸精馏 - 分离精馏',
+  'benzene_ethylene': '苯和乙烯反应生成异丙苯',
+    'ethylbenzene_styrene': '乙苯催化脱氢制苯乙烯'
+};
 
 // --- 状态变量 ---
 const userInput = ref('');
@@ -421,6 +498,7 @@ const chatBox = ref(null);
 const activeMenu = ref('unit'); // 'unit' 或 'process'
 const selectedCategory = ref(null);
 const selectedEquipment = ref(null);
+const selectedProcessExample = ref(null);
 
 // 拖拽相关变量
 const sidebar = ref(null);
@@ -501,10 +579,63 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', stopHeightResize);
 });
 
+// --- 消息ID计数器 ---
+let messageIdCounter = 0;
+
+// 创建不同消息类型的函数
+const createUserMessage = (content) => {
+  return {
+    id: `msg_${Date.now()}_${messageIdCounter++}`,
+    type: 'user',
+    content: content,
+    collapsed: false
+  };
+};
+
+const createThoughtMessage = (thought) => {
+  return {
+    id: `msg_${Date.now()}_${messageIdCounter++}`,
+    type: 'thought',
+    content: thought,
+    collapsed: false
+  };
+};
+
+const createToolRequestMessage = (toolCall) => {
+  return {
+    id: `msg_${Date.now()}_${messageIdCounter++}`,
+    type: 'tool_request',
+    call_id: toolCall.id,
+    function_name: toolCall.function_name,
+    args: toolCall.args,
+    result: '',
+    is_error: false,
+    collapsed: false
+  };
+};
+
+const createAssistantMessage = (content) => {
+  return {
+    id: `msg_${Date.now()}_${messageIdCounter++}`,
+    type: 'assistant',
+    content: content,
+    collapsed: false
+  };
+};
+
+// 折叠/展开切换
+const toggleCollapse = (msgId) => {
+  const msg = messages.value.find(m => m.id === msgId);
+  if (msg) {
+    msg.collapsed = !msg.collapsed;
+  }
+};
+
 // --- 逻辑处理 ---
 const selectMenu = (menu) => {
   activeMenu.value = menu;
   selectedEquipment.value = null;
+  selectedProcessExample.value = null;
 
   if (menu === 'process') {
     selectedCategory.value = null;
@@ -525,11 +656,20 @@ const toggleCategory = (category) => {
 
 const applyPrompt = (id) => {
   selectedEquipment.value = id;
+  selectedProcessExample.value = null;
   userInput.value = equipmentPrompts[id] || `我想配置一个 ${id} 设备。`;
 };
 
-const applyProcessPrompt = () => {
-  userInput.value = processPrompt;
+const applyProcessPrompt = (exampleId) => {
+  selectedProcessExample.value = exampleId;
+  selectedEquipment.value = null;
+  userInput.value = processExamples[exampleId] || '';
+};
+
+const clearSelection = () => {
+  selectedEquipment.value = null;
+  selectedProcessExample.value = null;
+  userInput.value = '';
 };
 
 // 获取输入框placeholder
@@ -554,42 +694,65 @@ const initWebSocket = () => {
   };
 
   socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+    try {
+      const data = JSON.parse(event.data);
 
-    if (data.type === 'done') {
-      loading.value = false;
-      return;
+      if (data.type === 'done') {
+        loading.value = false;
+        scrollToBottom();
+        return;
+      }
+
+      // 处理思维链 - 创建独立的思维链消息
+      if (data.thought && data.thought.trim()) {
+        const thoughtMsg = createThoughtMessage(data.thought);
+        messages.value.push(thoughtMsg);
+      }
+
+      // 处理工具调用请求 - 为每个工具调用创建独立消息
+      if (data.status === 'tool_calling' && data.tool_calls && data.tool_calls.length > 0) {
+        data.tool_calls.forEach(toolCall => {
+          const toolMsg = createToolRequestMessage(toolCall);
+          messages.value.push(toolMsg);
+        });
+      }
+
+      // 处理工具执行结果 - 更新对应的工具调用消息
+      if (data.status === 'tool_executed' && data.tool_results && data.tool_results.length > 0) {
+        data.tool_results.forEach(toolResult => {
+          // 找到对应的工具调用消息，更新其结果
+          const toolMsg = messages.value.find(m =>
+            m.type === 'tool_request' && m.call_id === toolResult.call_id
+          );
+          if (toolMsg) {
+            toolMsg.result = toolResult.result;
+            toolMsg.is_error = toolResult.is_error || false;
+          }
+        });
+      }
+
+      // 处理助手最终回复 - 创建独立的助手消息
+      if (data.content && data.content.trim()) {
+        const assistantMsg = createAssistantMessage(data.content);
+        messages.value.push(assistantMsg);
+      }
+
+      // 滚动到底部
+      scrollToBottom();
+    } catch (error) {
+      console.error('解析WebSocket消息失败:', error, event.data);
     }
-
-    // 处理流式更新逻辑
-    let lastMsg = messages.value[messages.value.length - 1];
-    if (!lastMsg || lastMsg.role === 'user') {
-      lastMsg = { role: 'assistant', content: '', thought: '', tool_calls: [] };
-      messages.value.push(lastMsg);
-    }
-
-    if (data.thought) lastMsg.thought += data.thought;
-    if (data.content) lastMsg.content += data.content;
-
-    // 如果是工具调用
-    if (data.status === 'tool_calling') {
-      lastMsg.tool_calls.push(...data.tool_calls);
-    }
-
-    // 如果工具返回结果
-    if (data.status === 'tool_executed') {
-      data.tool_results.forEach(res => {
-        const tool = lastMsg.tool_calls.find(t => t.id === res.call_id);
-        if (tool) tool.result = res.result;
-      });
-    }
-
-    scrollToBottom();
   };
 
   socket.onclose = () => {
     wsConnected.value = false;
+    console.log("WebSocket 连接关闭，3秒后尝试重连...");
     setTimeout(initWebSocket, 3000);
+  };
+
+  socket.onerror = (error) => {
+    console.error("WebSocket 错误:", error);
+    wsConnected.value = false;
   };
 };
 
@@ -597,7 +760,8 @@ const sendMessage = () => {
   if (!userInput.value || loading.value) return;
 
   const content = userInput.value;
-  messages.value.push({ role: 'user', content });
+  const userMsg = createUserMessage(content);
+  messages.value.push(userMsg);
 
   socket.send(JSON.stringify({ message: content }));
 
@@ -607,7 +771,12 @@ const sendMessage = () => {
 };
 
 const renderMarkdown = (text) => {
-  return DOMPurify.sanitize(marked.parse(text));
+  try {
+    return DOMPurify.sanitize(marked.parse(text));
+  } catch (error) {
+    console.error('Markdown解析失败:', error);
+    return text;
+  }
 };
 
 const scrollToBottom = async () => {
@@ -674,4 +843,23 @@ textarea, pre, .prose * {
 .prose code { @apply bg-blue-50 text-blue-700 px-1 py-0.5 rounded text-xs; }
 .prose h1, .prose h2, .prose h3 { @apply text-gray-800 font-bold text-sm; }
 .prose p { @apply text-gray-700 text-sm; }
+
+/* 新增折叠动画 */
+.collapse-enter-active,
+.collapse-leave-active {
+  transition: all 0.3s ease;
+  max-height: 1000px;
+  overflow: hidden;
+}
+
+.collapse-enter-from,
+.collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+/* 工具调用结果最大高度 */
+pre.max-h-60 {
+  max-height: 240px;
+}
 </style>

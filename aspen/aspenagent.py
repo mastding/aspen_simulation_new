@@ -2751,10 +2751,10 @@ class AspenSimulationManager:
             print(f"检查收敛状态时出错: {e}")
             return False
 
-    def get_all_simulation_results(self, config: Dict[str, Any]):
-        # 生成文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        excel_filename = fr"D:\aspen\resultfile\aspen_result_export_{timestamp}.xlsx"
+    def get_all_simulation_results(self, excel_filename, config: Dict[str, Any]):
+        # # 生成文件名
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # excel_filename = fr"D:\aspen\resultfile\aspen_result_export_{timestamp}.xlsx"
         
         # 确保目录存在
         result_dir = os.path.dirname(excel_filename)
@@ -4192,7 +4192,7 @@ def run_aspen_simulation():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # 将 config 保存为 JSON 文件
-    config_file_path = fr"./config_file/config_{timestamp}.json"
+    config_file_path = fr"D:\aspen\configfile\config_{timestamp}.json"
     # 确保目录存在
     try:
         with open(config_file_path, 'w', encoding='utf-8') as f:
@@ -4242,10 +4242,13 @@ def run_aspen_simulation():
         # 保存模拟文件
         aspen_manager.save_simulation(output_file_path)
 
+        # 结果文件
+        result_file_path = fr"D:\aspen\resultfile\aspen_result_export_{timestamp}.xlsx"
+
         if "No Errors" in current_messages_str:
             try:
                 # 获取模拟文件运行结果
-                result_absolute_path = aspen_manager.get_all_simulation_results(loaded_config)
+                result_absolute_path = aspen_manager.get_all_simulation_results(result_file_path, loaded_config)
             except Exception as e:
                 print(f"保存结果文件错误: {str(e)}")
 
