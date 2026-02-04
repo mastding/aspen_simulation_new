@@ -24,6 +24,16 @@ from prompt.llm_prompt import system_prompt
 from tools.get_schema import get_schema
 from tools.run_simulation import run_simulation
 from tools.get_result import get_result
+from fastapi import WebSocket, WebSocketDisconnect
+import json
+import asyncio
+from autogen_agentchat.messages import (
+    TextMessage,
+    ToolCallRequestEvent,    # 对应 LLM 发起调用
+    ToolCallExecutionEvent,  # 对应 工具返回结果
+    ThoughtEvent            # 对应 思维链
+)
+from autogen_core import CancellationToken
 
 load_dotenv()
 # 确保标准输出使用UTF-8编码
@@ -199,6 +209,86 @@ async def chat(request: ChatRequest) -> TextMessage:
     except Exception as e:
         logger.exception(f"处理聊天请求时出错: {e}")
         raise HTTPException(status_code=500, detail=f"处理请求时出错: {str(e)}")
+
+# 扩展：WebSocket 管理器
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_payload(self, websocket: WebSocket, payload: dict):
+        """发送统一格式的 JSON 负载"""
+        await websocket.send_text(json.dumps(payload, ensure_ascii=False))
+
+manager = ConnectionManager()
+
+@app.websocket("/ws/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    # ... 初始化 agent ...
+    # 创建模型客户端
+    model_client = await creat_model_client()
+    # 获取智能体
+    agent = await chemical_expert_agent(model_client)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            user_input = json.loads(data)["message"]
+
+            async for chunk in agent.on_messages_stream(
+                    [TextMessage(content=user_input, source="user")],
+                    CancellationToken()
+            ):
+                payload = {"role": "assistant", "type": "update"}
+
+                # 情况 A: 最终文本回复
+                if isinstance(chunk, TextMessage):
+                    payload.update({"content": chunk.content})
+
+                # 情况 B: 思维链 (Thought)
+                elif isinstance(chunk, ThoughtEvent):
+                    payload.update({"thought": chunk.content})
+
+                # 情况 C: 工具调用请求 (Request)
+                elif isinstance(chunk, ToolCallRequestEvent):
+                    # 注意：chunk.content 在这里是 List[FunctionCall]
+                    payload.update({
+                        "status": "tool_calling",
+                        "tool_calls": [
+                            {
+                                "id": tc.id if hasattr(tc, 'id') else "call_" + str(index),
+                                "function_name": tc.name,  # 注意：源码中可能是 tc.name 或 tc.function
+                                "args": tc.arguments
+                            } for index, tc in enumerate(chunk.content)
+                        ]
+                    })
+
+                # 情况 D: 工具执行结果 (Execution)
+                elif isinstance(chunk, ToolCallExecutionEvent):
+                    # 注意：chunk.content 在这里是 List[FunctionExecutionResult]
+                    payload.update({
+                        "status": "tool_executed",
+                        "tool_results": [
+                            {
+                                "call_id": res.call_id,
+                                "result": res.content,
+                                "is_error": False
+                            } for res in chunk.content
+                        ]
+                    })
+
+                await manager.send_payload(websocket, payload)
+
+            await manager.send_payload(websocket, {"type": "done"})
+
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 if __name__ == "__main__":
     import uvicorn

@@ -10,7 +10,9 @@ pandas>=2.0.0
 cryptography>=41.0.0
 openpyxl
 pyautogen
+autogen_ext
 agentlightning
 openai
 poml
 aiofiles>=23.0.0
+websockets
