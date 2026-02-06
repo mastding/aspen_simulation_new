@@ -21,5 +21,5 @@ schema_check_prompt = f"""
     }}
     5. blocks_RStoic_data中的组分不能既是反应物又是反应的产物，反应物和产物的组分必须在components中包含，
     6. 确保反应器配置的反应物与产物的总原子数守恒，比如C8H10->C8H8+H2则守恒，如果是C8H10->C8H8+2H2，则不守恒。
-    6. block_connections中的分离器、闪蒸罐、塔等设备如果配置了循环物流。比如VD(OUT)或者LD(OUT)，需检查该物料是否重新进入到其他的设备作为F(IN)进行循环
+    7. block_connections中的分离器、闪蒸罐、塔等设备如果配置了循环物流。比如VD(OUT)或者LD(OUT)，需检查该物料是否重新进入到其他的设备作为F(IN)进行循环
     """

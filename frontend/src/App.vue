@@ -155,6 +155,39 @@
                       <div v-if="msg.result" class="pt-2 border-t border-gray-200">
                         <div class="text-[10px] font-semibold text-emerald-600 mb-1">执行结果:</div>
                         <pre class="whitespace-pre-wrap text-xs text-gray-800 bg-white p-2 rounded border border-gray-200 font-mono max-h-60 overflow-y-auto">{{ msg.result }}</pre>
+
+                        <!-- 文件下载区域 -->
+                        <div v-if="msg.file_paths && msg.file_paths.length > 0" class="mt-2 pt-2 border-t border-gray-200">
+                          <div class="text-[10px] font-semibold text-indigo-600 mb-1">生成文件:</div>
+                          <div class="space-y-1">
+                            <div v-for="(fileInfo, index) in msg.file_paths" :key="index"
+                                 class="flex items-center justify-between bg-indigo-50 p-2 rounded border border-indigo-200">
+                              <div class="flex items-center gap-2">
+                                <span class="text-indigo-600 text-xs">
+                                  {{ getFileIcon(fileInfo.type) }}
+                                </span>
+                                <div class="flex flex-col">
+                                  <span class="text-xs text-gray-700">
+                                    {{ getFileName(fileInfo.path) }}
+                                  </span>
+                                  <span class="text-[10px] text-gray-500">
+                                    {{ getFileTypeName(fileInfo.type) }}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                @click.stop="downloadFile(fileInfo.path)"
+                                class="text-[10px] text-white bg-indigo-600 hover:bg-indigo-700 px-2 py-1 rounded transition-colors flex items-center gap-1"
+                              >
+                                <span>↓</span>
+                                下载
+                              </button>
+                            </div>
+                          </div>
+                          <p class="text-[10px] text-gray-500 mt-1">
+                            注：成功时会生成3个文件（流程文件、配置文件、结果文件），失败时生成1个模拟文件
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -181,6 +214,48 @@
                     </div>
                     <div v-if="!msg.collapsed" class="p-4">
                       <div v-html="renderMarkdown(msg.content)" class="text-gray-800 text-sm prose-sm"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 文件下载消息 -->
+              <div v-else-if="msg.type === 'file_download'" class="flex justify-start mb-4">
+                <div class="max-w-[90%] w-full">
+                  <div class="border border-green-200 rounded-lg overflow-hidden shadow-sm bg-green-50">
+                    <div class="px-4 py-3 border-b border-green-200">
+                      <div class="flex items-center gap-2">
+                        <span class="text-green-600 font-bold text-sm">📁 模拟文件下载</span>
+                        <span class="text-xs text-green-500 bg-green-100 px-2 py-0.5 rounded-full">
+                          {{ msg.file_paths.length }} 个文件
+                        </span>
+                      </div>
+                    </div>
+                    <div class="p-4">
+                      <div class="space-y-3">
+                        <div v-for="(fileInfo, index) in msg.file_paths" :key="index"
+                             class="flex items-center justify-between bg-white p-3 rounded-lg border border-green-200">
+                          <div class="flex items-center gap-2">
+                            <span class="text-green-600 text-lg">
+                              {{ getFileIcon(fileInfo.type) }}
+                            </span>
+                            <div>
+                              <div class="text-sm font-medium text-gray-800">
+                                {{ getFileName(fileInfo.path) }}
+                              </div>
+                              <div class="text-xs text-gray-500">
+                                {{ getFileTypeName(fileInfo.type) }}
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            @click.stop="downloadFile(fileInfo.path)"
+                            class="text-xs text-white bg-green-600 hover:bg-green-700 px-3 py-2 rounded-lg transition-colors"
+                          >
+                            下载
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -609,6 +684,7 @@ const createToolRequestMessage = (toolCall) => {
     function_name: toolCall.function_name,
     args: toolCall.args,
     result: '',
+    file_paths: [], // 添加文件路径数组
     is_error: false,
     collapsed: false
   };
@@ -628,6 +704,51 @@ const toggleCollapse = (msgId) => {
   const msg = messages.value.find(m => m.id === msgId);
   if (msg) {
     msg.collapsed = !msg.collapsed;
+  }
+};
+
+// 文件处理辅助函数
+const getFileIcon = (fileType) => {
+  const icons = {
+    'aspen': '🏭',    // Aspen模拟文件
+    'config': '⚙️',   // 配置文件
+    'result': '📊'    // 结果文件
+  };
+  return icons[fileType] || '📎';
+};
+
+const getFileName = (filePath) => {
+  // 提取文件名（去除路径）
+  const parts = filePath.split(/[\\/]/);
+  return parts[parts.length - 1];
+};
+
+const getFileTypeName = (fileType) => {
+  const typeNames = {
+    'aspen': 'Aspen模拟文件',
+    'config': '配置文件',
+    'result': '结果文件'
+  };
+  return typeNames[fileType] || '文件';
+};
+
+const downloadFile = async (filePath) => {
+  try {
+    // 对文件路径进行编码
+    const encodedPath = encodeURIComponent(filePath);
+    const downloadUrl = `http://localhost:8000/download?file_path=${encodedPath}`;
+
+    // 创建隐藏的a标签触发下载
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = getFileName(filePath);
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  } catch (error) {
+    console.error('文件下载失败:', error);
+    alert(`文件下载失败: ${error.message}`);
   }
 };
 
@@ -703,6 +824,19 @@ const initWebSocket = () => {
         return;
       }
 
+      // 处理 file_download 消息
+      if (data.type === 'file_download' && data.file_paths) {
+        // 创建文件下载消息
+        const fileMsg = {
+          id: `file_${Date.now()}_${messageIdCounter++}`,
+          type: 'file_download',
+          file_paths: data.file_paths
+        };
+        messages.value.push(fileMsg);
+        scrollToBottom();
+        return;  // 直接返回，不继续处理其他逻辑
+      }
+
       // 处理思维链 - 创建独立的思维链消息
       if (data.thought && data.thought.trim()) {
         const thoughtMsg = createThoughtMessage(data.thought);
@@ -727,6 +861,10 @@ const initWebSocket = () => {
           if (toolMsg) {
             toolMsg.result = toolResult.result;
             toolMsg.is_error = toolResult.is_error || false;
+            // 如果有文件路径，添加到消息中
+            if (toolResult.file_paths && Array.isArray(toolResult.file_paths)) {
+              toolMsg.file_paths = toolResult.file_paths;
+            }
           }
         });
       }
@@ -861,5 +999,16 @@ textarea, pre, .prose * {
 /* 工具调用结果最大高度 */
 pre.max-h-60 {
   max-height: 240px;
+}
+
+/* 文件下载按钮样式 */
+.bg-indigo-50:hover {
+  background-color: #e0e7ff !important;
+}
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>
