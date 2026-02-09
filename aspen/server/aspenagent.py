@@ -2751,10 +2751,10 @@ class AspenSimulationManager:
             print(f"检查收敛状态时出错: {e}")
             return False
 
-    def get_all_simulation_results(self, config: Dict[str, Any]):
-        # 生成文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        excel_filename = fr"D:\aspen\resultfile\aspen_result_export_{timestamp}.xlsx"
+    def get_all_simulation_results(self, excel_filename, config: Dict[str, Any]):
+        # # 生成文件名
+        # timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # excel_filename = fr"D:\aspen\resultfile\aspen_result_export_{timestamp}.xlsx"
         
         # 确保目录存在
         result_dir = os.path.dirname(excel_filename)
@@ -4192,7 +4192,7 @@ def run_aspen_simulation():
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # 将 config 保存为 JSON 文件
-    config_file_path = fr"./config_file/config_{timestamp}.json"
+    config_file_path = fr"D:\aspen\configfile\config_{timestamp}.json"
     # 确保目录存在
     try:
         with open(config_file_path, 'w', encoding='utf-8') as f:
@@ -4242,10 +4242,13 @@ def run_aspen_simulation():
         # 保存模拟文件
         aspen_manager.save_simulation(output_file_path)
 
+        # 结果文件
+        result_file_path = fr"D:\aspen\resultfile\aspen_result_export_{timestamp}.xlsx"
+
         if "No Errors" in current_messages_str:
             try:
                 # 获取模拟文件运行结果
-                result_absolute_path = aspen_manager.get_all_simulation_results(loaded_config)
+                result_absolute_path = aspen_manager.get_all_simulation_results(result_file_path, loaded_config)
             except Exception as e:
                 print(f"保存结果文件错误: {str(e)}")
 
@@ -4290,8 +4293,31 @@ def health_check():
     }
 
 if __name__ == "__main__":
-    # 启动HTTP服务，默认端口6000
-
-    print(f"启动Aspen模拟服务")
-    app.run(host="127.0.0.1", port=os.getenv("ASPEN_SIMULATOR_PORT"), debug=True, use_reloader=False)
+    # 启动HTTPS服务，默认端口6000
+    import ssl
+    
+    # 获取证书路径（从环境变量或使用默认路径）
+    cert_file = os.getenv("SSL_CERT_FILE", "cert.pem")
+    key_file = os.getenv("SSL_KEY_FILE", "key.pem")
+    
+    # 创建SSL上下文
+    ssl_context = None
+    if os.path.exists(cert_file) and os.path.exists(key_file):
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ssl_context.load_cert_chain(cert_file, key_file)
+        print(f"启动Aspen模拟服务 (HTTPS模式)")
+        print(f"使用证书: {cert_file}")
+        print(f"使用密钥: {key_file}")
+    else:
+        print(f"警告: 未找到SSL证书文件，将使用adhoc模式生成临时证书")
+        print(f"提示: 请设置环境变量 SSL_CERT_FILE 和 SSL_KEY_FILE 指向您的证书文件")
+        ssl_context = 'adhoc'  # Flask会自动生成临时证书
+    
+    app.run(
+        host="0.0.0.0", 
+        port=os.getenv("ASPEN_SIMULATOR_PORT"), 
+        debug=True, 
+        use_reloader=False,
+        ssl_context=ssl_context
+    )
 

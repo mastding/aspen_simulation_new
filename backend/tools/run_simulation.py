@@ -18,7 +18,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
-ASPEN_SIMULATOR_URL = os.getenv("ASPEN_SIMULATOR_URL", "http://localhost:8002")
+ASPEN_SIMULATOR_URL = os.getenv("ASPEN_SIMULATOR_URL")
 
 
 # 工具2：运行模拟
@@ -31,7 +31,8 @@ async def run_simulation(config: Dict[str, Any]) -> Dict[str, Any]:
         response = requests.post(
             f"{ASPEN_SIMULATOR_URL}/run-aspen-simulation",
             json=config,
-            timeout=3000
+            timeout=3000,
+            verify=False
         )
         return response.json()
     except requests.exceptions.RequestException as e:

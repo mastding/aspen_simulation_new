@@ -1,0 +1,19 @@
+# Agent Lightning 核心
+agentlightning>=0.3.0
+
+# AutoGen 依赖
+autogen-agentchat
+autogen-ext[openai]
+autogen-core
+
+# 基础依赖
+python-dotenv
+pydantic>=2.0
+aiofiles
+
+# 日志和监控
+agentops>=0.4.13
+
+# 可选: 高级功能
+# weave>=0.52.22  # Weights & Biases 集成
+# pymongo  # MongoDB 存储后端

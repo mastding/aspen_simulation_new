@@ -1,3 +1,4 @@
+# 基础依赖
 fastapi
 uvicorn
 pydantic
@@ -8,9 +9,19 @@ pywin32
 Flask>=2.3.0
 pandas>=2.0.0
 cryptography>=41.0.0
-openpyxl
+
+# AutoGen 相关
 pyautogen
+autogen-agentchat>=0.2.0
+autogen-core>=0.2.0
+autogen-ext>=0.2.0
+
+# agentlightning 相关
 agentlightning
-openai
-poml
+
+# 其他
+openpyxl
 aiofiles>=23.0.0
+openai>=1.0.0
+poml>=0.0.5
+

@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-content: center;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow: hidden; /* 防止出现双滚动条 */
+}
+
+#app {
+  width: 100%;
+}
+
+/* 针对 Markdown 渲染内容的样式定制 */
+.prose {
+  color: #cbd5e1;
+  max-width: none;
+}
+.prose h1, .prose h2, .prose h3 {
+  color: #f8fafc;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+.prose code {
+  background-color: #1e293b;
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.9em;
+}
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+}
+.prose th, .prose td {
+  border: 1px solid #334155;
+  padding: 0.5rem;
+  text-align: left;
+}
+.prose th {
+  background-color: #1e293b;
+}
+
+/* 自定义滚动条样式 */
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: #0f172a;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
